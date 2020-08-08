@@ -1,0 +1,134 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: schedule-crud
+app: schedule-crud-${self:provider.region, 'eu-central-1'}
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+# frameworkVersion: "=X.X.X"
+
+provider:
+  name: aws
+  runtime: nodejs12.x
+
+# you can overwrite defaults here
+#  stage: dev
+  region: eu-central-1
+  stackName: schedule-${self:provider.region}
+  apiName: schedule-api-${self:provider.region}
+  deploymentBucket:
+    name: schedule.deployment.bucket
+
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:GetItem"
+        - "dynamodb:BatchGetItem"
+        - "dynamodb:DeleteItem"
+        - "dynamodb:DescribeTable"
+        - "dynamodb:PutItem"
+        - "dynamodb:Query"
+      Resource:
+        { "Fn::Join" : ["", ["arn:aws:dynamodb:", "${self:provider.region, 'eu-central-1'}:", { Ref: "AWS::AccountId" }, ":table/schedules-", "${self:provider.region, 'eu-central-1'}"]] }
+
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:GetItem"
+        - "dynamodb:BatchGetItem"
+        - "dynamodb:DeleteItem"
+        - "dynamodb:DescribeTable"
+        - "dynamodb:PutItem"
+        - "dynamodb:Query"
+      Resource:
+        { "Fn::Join" : ["", ["arn:aws:dynamodb:", "${self:provider.region, 'eu-central-1'}:", { Ref: "AWS::AccountId" }, ":table/schedules-submissions-", "${self:provider.region, 'eu-central-1'}"]] }
+
+  environment:
+    REGION: ${self:provider.region}
+
+package:
+  individually: true
+  exclude:
+    - src/**
+    - main.js
+  include:
+    - src/corsWrapper/**
+
+functions:
+  createSchedule:
+    handler: src/createSchedule/createSchedule.createScheduleHandler
+    package:
+      individually: true
+      include:
+        - src/createSchedule/**
+    events:
+      - http:
+          path: ${self:custom.${opt:apiVersion, 'v1'}}schedules
+          method: post
+          cors: true
+
+  getSchedule:
+    handler: src/getSchedule/getSchedule.getScheduleHandler
+    package:
+      individually: true
+      include:
+        - src/getSchedule/**
+    events:
+      - http:
+          path: ${self:custom.${opt:apiVersion, 'v1'}}schedules/{scheduleCode}
+          method: get
+          cors: true
+          request:
+            parameters:
+              paths:
+                scheduleCode: true
+
+
+  submitScheduleSubmission:
+    handler: src/submitSchedule/submitSchedule.submitScheduleHandler
+    package:
+      individually: true
+      include:
+        - src/submitSchedule/**
+    events:
+      - http:
+          path: ${self:custom.${opt:apiVersion, 'v1'}}schedules/{scheduleCode}/appointments
+          method: post
+          cors: true
+          request:
+            parameters:
+              paths:
+                scheduleCode: true
+
+  getScheduleSubmissions:
+    handler: src/getScheduleAppointments/getScheduleAppointments.getScheduleAppointmentsHandler
+    package:
+      individually: true
+      include:
+        - src/getScheduleAppointments/**
+    events:
+      - http:
+          path: ${self:custom.${opt:apiVersion, 'v1'}}schedules/{scheduleCode}/appointments
+          method: get
+          cors: true
+          request:
+            parameters:
+              paths:
+                scheduleCode: true
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+custom:
+  v1: v1/
